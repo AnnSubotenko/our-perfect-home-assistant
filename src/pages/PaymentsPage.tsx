@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 type Bill = {
   id: string;
@@ -6,22 +6,40 @@ type Bill = {
   amount: number;
   paid: boolean;
   dueDate?: string;
+  category?: string;
 };
+
+type FilterType = "all" | "paid" | "pending";
 
 type StatCardProps = {
   title: string;
   amount: string;
-  amountClassName?: string;
-  icon: React.ReactNode;
-  iconBgClassName?: string;
+  amountClassName: string;
+  iconBgClassName: string;
+  icon: ReactNode;
 };
+
+type FilterButtonProps = {
+  active: boolean;
+  children: ReactNode;
+  onClick: () => void;
+  activeClassName: string;
+  inactiveClassName?: string;
+};
+
+function formatZAR(amount: number): string {
+  return new Intl.NumberFormat("en-ZA", {
+    style: "currency",
+    currency: "ZAR",
+  }).format(amount);
+}
 
 function StatCard({
   title,
   amount,
-  amountClassName = "text-gray-800",
+  amountClassName,
+  iconBgClassName,
   icon,
-  iconBgClassName = "bg-gray-100",
 }: StatCardProps) {
   return (
     <div className="rounded-[28px] border border-[#ddd6cc] bg-white px-8 py-8 shadow-sm">
@@ -43,20 +61,78 @@ function StatCard({
   );
 }
 
+function FilterButton({
+  active,
+  children,
+  onClick,
+  activeClassName,
+  inactiveClassName = "border-[#ddd6cc] bg-white text-gray-700 hover:bg-gray-50",
+}: FilterButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-2xl border px-6 py-3 text-lg font-medium transition-colors ${
+        active
+          ? `${activeClassName} border-transparent`
+          : inactiveClassName
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function PaymentsPage() {
-
   const [showModal, setShowModal] = useState(false);
+  const [filter, setFilter] = useState<FilterType>("all");
 
-   const [bills, setBills] = useState<Bill[]>([
-    { id: crypto.randomUUID(), name: "Rent", amount: 1200, paid: true, dueDate: "2026-03-01" },
-    { id: crypto.randomUUID(), name: "Electricity", amount: 200, paid: false, dueDate: "2026-03-20" },
-    { id: crypto.randomUUID(), name: "Internet", amount: 100, paid: true, dueDate: "2026-03-15" },
-    { id: crypto.randomUUID(), name: "Phone", amount: 643, paid: false, dueDate: "2026-03-25" },
+  const [bills, setBills] = useState<Bill[]>([
+    {
+      id: "1",
+      name: "Rent",
+      amount: 1500,
+      paid: true,
+      dueDate: "1st",
+      category: "Housing",
+    },
+    {
+      id: "2",
+      name: "Electricity",
+      amount: 120,
+      paid: false,
+      dueDate: "20th",
+      category: "Utilities",
+    },
+    {
+      id: "3",
+      name: "Internet",
+      amount: 65,
+      paid: false,
+      dueDate: "22nd",
+      category: "Utilities",
+    },
+    {
+      id: "4",
+      name: "Water",
+      amount: 45,
+      paid: true,
+      dueDate: "15th",
+      category: "Utilities",
+    },
+    {
+      id: "5",
+      name: "Gas",
+      amount: 78,
+      paid: true,
+      dueDate: "12th",
+      category: "Utilities",
+    },
   ]);
 
   const [newBillName, setNewBillName] = useState("");
   const [newBillAmount, setNewBillAmount] = useState("");
   const [newBillDueDate, setNewBillDueDate] = useState("");
+  const [newBillCategory, setNewBillCategory] = useState("");
 
   const totalPaid = useMemo(() => {
     return bills
@@ -64,17 +140,28 @@ export default function PaymentsPage() {
       .reduce((sum, bill) => sum + bill.amount, 0);
   }, [bills]);
 
-    const pending = useMemo(() => {
+  const pending = useMemo(() => {
     return bills
       .filter((bill) => !bill.paid)
       .reduce((sum, bill) => sum + bill.amount, 0);
   }, [bills]);
 
-    const totalMonthly = useMemo(() => {
+  const totalMonthly = useMemo(() => {
     return bills.reduce((sum, bill) => sum + bill.amount, 0);
   }, [bills]);
 
-    function togglePaid(id: string) {
+  const filteredBills = useMemo(() => {
+    switch (filter) {
+      case "paid":
+        return bills.filter((bill) => bill.paid);
+      case "pending":
+        return bills.filter((bill) => !bill.paid);
+      default:
+        return bills;
+    }
+  }, [bills, filter]);
+
+  function togglePaid(id: string) {
     setBills((prev) =>
       prev.map((bill) =>
         bill.id === id ? { ...bill, paid: !bill.paid } : bill
@@ -90,72 +177,66 @@ export default function PaymentsPage() {
     const trimmedName = newBillName.trim();
     const parsedAmount = Number(newBillAmount);
 
-    if (!trimmedName) return;
-    if (!newBillAmount || Number.isNaN(parsedAmount) || parsedAmount <= 0) return;
+    if (!trimmedName || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+      return;
+    }
 
     const newBill: Bill = {
       id: crypto.randomUUID(),
       name: trimmedName,
       amount: parsedAmount,
       paid: false,
-      dueDate: newBillDueDate || undefined,
+      dueDate: newBillDueDate.trim() || undefined,
+      category: newBillCategory.trim() || undefined,
     };
 
     setBills((prev) => [...prev, newBill]);
     setNewBillName("");
     setNewBillAmount("");
     setNewBillDueDate("");
+    setNewBillCategory("");
     setShowModal(false);
   }
 
   return (
     <div className="min-h-screen bg-[#f6f5f2] px-6 py-8 md:px-12">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-8">
+        <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800"> Payment Tracker </h1>
-            <p className="text-gray-400 text-sm mt-1 flex items-center gap-1">
-            <svg
-             xmlns="http://www.w3.org/2000/svg"
-             className="w-4 h-4"
-             fill="none"
-             viewBox="0 0 24 24"
-             stroke="currentColor"
-             strokeWidth={1.8}>
-              <path
-               strokeLinecap="round"
-               strokeLinejoin="round"
-               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Track your monthly bills and payments
-          </p>
+            <h1 className="text-4xl font-bold tracking-tight text-gray-800 md:text-5xl">
+              Payment Tracker
+            </h1>
+            <p className="mt-3 text-xl text-gray-500">
+              Track your monthly bills and payments
+            </p>
           </div>
+
           <button
-          onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 bg-[#4a8c6a] hover:bg-[#3d7a5b] text-white text-sm font-medium px-5 py-3 rounded-xl transition-colors"
-        >
-          <svg
-           xmlns="http://www.w3.org/2000/svg"
-           className="w-4 h-4" fill="none"
-           viewBox="0 0 24 24"
-           stroke="currentColor"
-           strokeWidth={2}>
-            <path
-             strokeLinecap="round"
-             strokeLinejoin="round"
-             d="M12 4v16m8-8H4"
-             />
-          </svg>
-          Add Bill
-        </button>
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-3 self-start rounded-3xl bg-[#4a8c6a] px-7 py-4 text-lg font-medium text-white transition-colors hover:bg-[#3d7a5b]"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2.2}
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 4v16m8-8H4"
+              />
+            </svg>
+            Add Bill
+          </button>
         </div>
 
-        {/* Stats */}
         <div className="grid gap-6 md:grid-cols-3">
           <StatCard
             title="Total Paid"
-            amount={`ZAR ${totalPaid.toFixed(2)}`}
+            amount={formatZAR(totalPaid)}
             amountClassName="text-[#42a36b]"
             iconBgClassName="bg-[#edf4ef]"
             icon={
@@ -176,9 +257,9 @@ export default function PaymentsPage() {
             }
           />
 
-           <StatCard
+          <StatCard
             title="Pending"
-            amount={`ZAR ${pending.toFixed(2)}`}
+            amount={formatZAR(pending)}
             amountClassName="text-[#e6a12d]"
             iconBgClassName="bg-[#faf3e7]"
             icon={
@@ -206,7 +287,7 @@ export default function PaymentsPage() {
 
           <StatCard
             title="Total Monthly"
-            amount={`ZAR ${totalMonthly.toFixed(2)}`}
+            amount={formatZAR(totalMonthly)}
             amountClassName="text-gray-800"
             iconBgClassName="bg-[#eef2ef]"
             icon={
@@ -228,39 +309,68 @@ export default function PaymentsPage() {
           />
         </div>
 
-        {/* Bills list */}
+        <div className="mt-8 flex flex-wrap gap-3">
+          <FilterButton
+            active={filter === "all"}
+            onClick={() => setFilter("all")}
+            activeClassName="bg-[#4a8c6a] text-white"
+          >
+            All
+          </FilterButton>
+
+          <FilterButton
+            active={filter === "paid"}
+            onClick={() => setFilter("paid")}
+            activeClassName="bg-[#df8e4a] text-white"
+          >
+            Paid
+          </FilterButton>
+
+          <FilterButton
+            active={filter === "pending"}
+            onClick={() => setFilter("pending")}
+            activeClassName="bg-[#f5e1c2] text-[#e6a12d]"
+          >
+            Pending
+          </FilterButton>
+        </div>
+
         <div className="mt-8 rounded-[28px] border border-[#ddd6cc] bg-white p-6 shadow-sm">
           <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-xl font-bold text-gray-800">Your Bills</h2>
+            <h2 className="text-xl font-bold text-gray-800">Monthly Bills</h2>
             <span className="text-sm text-gray-400">
-              {bills.length} {bills.length === 1 ? "bill" : "bills"}
+              {filteredBills.length} {filteredBills.length === 1 ? "bill" : "bills"}
             </span>
           </div>
 
-          {bills.length === 0 ? (
+          {filteredBills.length === 0 ? (
             <p className="py-8 text-center text-sm text-gray-400">
-              No bills yet. Add your first bill.
+              No bills in this filter.
             </p>
           ) : (
-            <div className="space-y-3">
-              {bills.map((bill) => (
+            <div className="space-y-4">
+              {filteredBills.map((bill) => (
                 <div
                   key={bill.id}
-                  className="flex flex-col gap-4 rounded-2xl bg-[#fafaf8] px-4 py-4 md:flex-row md:items-center md:justify-between"
+                  className={`flex flex-col gap-4 rounded-3xl px-6 py-5 md:flex-row md:items-center md:justify-between ${
+                    bill.paid
+                      ? "border border-[#cfe4d6] bg-[#f6fbf7]"
+                      : "bg-[#faf9f7]"
+                  }`}
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-4">
                     <button
                       onClick={() => togglePaid(bill.id)}
-                      className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                      className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
                         bill.paid
-                          ? "border-[#4a8c6a] bg-[#4a8c6a]"
-                          : "border-gray-300 hover:border-[#4a8c6a]"
+                          ? "border-[#42a36b] bg-[#42a36b]"
+                          : "border-gray-300 bg-transparent hover:border-[#4a8c6a]"
                       }`}
                     >
                       {bill.paid && (
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          className="h-3 w-3 text-white"
+                          className="h-3.5 w-3.5 text-white"
                           fill="none"
                           viewBox="0 0 24 24"
                           stroke="currentColor"
@@ -277,52 +387,62 @@ export default function PaymentsPage() {
 
                     <div>
                       <p
-                        className={`font-medium ${
-                          bill.paid ? "text-gray-400 line-through" : "text-gray-800"
+                        className={`text-2xl font-medium ${
+                          bill.paid ? "text-gray-500 line-through" : "text-gray-800"
                         }`}
                       >
                         {bill.name}
                       </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                        <span>ZAR{bill.amount.toFixed(2)}</span>
+
+                      <div className="mt-1 text-sm text-gray-500">
                         {bill.dueDate && <span>Due: {bill.dueDate}</span>}
-                        <span
-                          className={
-                            bill.paid ? "text-[#42a36b]" : "text-[#e07048]"
-                          }
-                        >
-                          {bill.paid ? "Paid" : "Pending"}
-                        </span>
+                        {bill.dueDate && bill.category && <span> • </span>}
+                        {bill.category && <span>{bill.category}</span>}
                       </div>
                     </div>
                   </div>
 
-                  <button
-                    onClick={() => deleteBill(bill.id)}
-                    className="self-end text-gray-300 transition-colors hover:text-red-400 md:self-auto"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
+                  <div className="flex items-center gap-5">
+                    <p className="text-2xl font-bold text-gray-800">
+                      {formatZAR(bill.amount)}
+                    </p>
+
+                    <span
+                      className={`rounded-full px-5 py-2 text-lg font-medium ${
+                        bill.paid
+                          ? "bg-[#d8eadf] text-[#42a36b]"
+                          : "bg-[#f5e1c2] text-[#e6a12d]"
+                      }`}
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M6 18L18 6M6 6l12 12"
-                      />
-                    </svg>
-                  </button>
+                      {bill.paid ? "Paid" : "Pending"}
+                    </span>
+
+                    <button
+                      onClick={() => deleteBill(bill.id)}
+                      className="text-gray-300 transition-colors hover:text-red-400"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
 
-        {/* Modal */}
         {showModal && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
@@ -352,7 +472,7 @@ export default function PaymentsPage() {
 
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
-                    Amount
+                    Amount (ZAR)
                   </label>
                   <input
                     type="number"
@@ -370,10 +490,24 @@ export default function PaymentsPage() {
                     Due date
                   </label>
                   <input
-                    type="date"
+                    type="text"
                     value={newBillDueDate}
                     onChange={(e) => setNewBillDueDate(e.target.value)}
-                    className="w-full rounded-xl border border-gray-200 bg-[#fafaf8] px-4 py-3 text-sm text-gray-700 transition focus:border-[#4a8c6a] focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30"
+                    placeholder="e.g. 20th"
+                    className="w-full rounded-xl border border-gray-200 bg-[#fafaf8] px-4 py-3 text-sm text-gray-700 placeholder-gray-400 transition focus:border-[#4a8c6a] focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-700">
+                    Category
+                  </label>
+                  <input
+                    type="text"
+                    value={newBillCategory}
+                    onChange={(e) => setNewBillCategory(e.target.value)}
+                    placeholder="e.g. Utilities"
+                    className="w-full rounded-xl border border-gray-200 bg-[#fafaf8] px-4 py-3 text-sm text-gray-700 placeholder-gray-400 transition focus:border-[#4a8c6a] focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30"
                   />
                 </div>
               </div>
