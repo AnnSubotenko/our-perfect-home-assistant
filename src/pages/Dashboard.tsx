@@ -39,7 +39,7 @@ const stats = [
   },
   {
     label: "Total Spent",
-    value: "$2,450",
+    value: "ZAR 2,450",
     sub: "December",
     iconBg: "bg-[#fef0ec]",
     iconColor: "text-[#e07048]",
