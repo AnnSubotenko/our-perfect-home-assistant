@@ -4,6 +4,7 @@ import LoginPage from './pages/LoginPage'
 import SignUpPage from './pages/SignUpPage'
 import Dashboard from './pages/Dashboard'
 import CalendarPage from './pages/CalendarPage'
+import PaymentsPage from './pages/PaymentsPage'
 
 function App() {
   return (
@@ -16,6 +17,7 @@ function App() {
         <Route element={<Layout />}>
          <Route path="/dashboard" element={<Dashboard />} />
          <Route path="/calendar" element={<CalendarPage />} />
+         <Route path="/payments" element={<PaymentsPage />} />
        </Route>
       </Routes>
     </BrowserRouter>
