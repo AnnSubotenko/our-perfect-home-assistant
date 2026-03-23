@@ -1,5 +1,5 @@
-// No sidebar here — Layout.tsx provides it
 import { useState } from "react";
+
 import {
   getDaysInMonth,
   getDay,
