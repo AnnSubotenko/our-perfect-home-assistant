@@ -1,14 +1,11 @@
 // No sidebar or outer wrapper here — Layout.tsx provides it
 import { useMemo, useState, type ReactNode } from "react";
+import type { Bill } from "../types/Bill";
 
 // Types
-type Bill = {
-  id: string;
-  name: string;
-  amount: number;
-  paid: boolean;
-  dueDate?: string;
-  category?: string;
+type Props = {
+  bills: Bill[];
+  setBills: React.Dispatch<React.SetStateAction<Bill[]>>;
 };
 
 type FilterType = "all" | "paid" | "pending";
@@ -35,6 +32,14 @@ function formatZAR(amount: number): string {
     style: "currency",
     currency: "ZAR",
   }).format(amount);
+}
+
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-ZA", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 // Sub-components
@@ -80,18 +85,9 @@ function FilterButton({
 }
 
 // Main Component
-export default function PaymentsPage() {
+export default function PaymentsPage({ bills, setBills }: Props)  {
   const [showModal, setShowModal] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
-
-  const [bills, setBills] = useState<Bill[]>([
-    { id: "1", name: "Rent",        amount: 1500, paid: true,  dueDate: "2026-03-01",  category: "Housing"   },
-    { id: "2", name: "Electricity", amount: 120,  paid: false, dueDate: "2026-03-20", category: "Utilities" },
-    { id: "3", name: "Internet",    amount: 65,   paid: false, dueDate: "2026-03-22", category: "Utilities" },
-    { id: "4", name: "Water",       amount: 45,   paid: true,  dueDate: "2026-03-15", category: "Utilities" },
-    { id: "5", name: "Gas",         amount: 78,   paid: true,  dueDate: "2026-03-12", category: "Utilities" },
-  ]);
-
   const [newBillName,     setNewBillName]     = useState("");
   const [newBillAmount,   setNewBillAmount]   = useState("");
   const [newBillDueDate,  setNewBillDueDate]  = useState("");
@@ -311,15 +307,7 @@ export default function PaymentsPage() {
                       {bill.name}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400">
-                      {bill.dueDate && (
-                        <span>
-                          Due: {new Date(bill.dueDate).toLocaleDateString("en-ZA", {
-                            day: "numeric",
-                            month: "short",
-                            year: "numeric",
-                          })}
-                        </span>
-                      )}
+                      {bill.dueDate && <span>Due: {formatDate(bill.dueDate)}</span>}
                       {bill.dueDate && bill.category && <span> · </span>}
                       {bill.category && <span>{bill.category}</span>}
                     </p>
