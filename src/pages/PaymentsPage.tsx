@@ -85,11 +85,11 @@ export default function PaymentsPage() {
   const [filter, setFilter] = useState<FilterType>("all");
 
   const [bills, setBills] = useState<Bill[]>([
-    { id: "1", name: "Rent",        amount: 1500, paid: true,  dueDate: "1st",  category: "Housing"   },
-    { id: "2", name: "Electricity", amount: 120,  paid: false, dueDate: "20th", category: "Utilities" },
-    { id: "3", name: "Internet",    amount: 65,   paid: false, dueDate: "22nd", category: "Utilities" },
-    { id: "4", name: "Water",       amount: 45,   paid: true,  dueDate: "15th", category: "Utilities" },
-    { id: "5", name: "Gas",         amount: 78,   paid: true,  dueDate: "12th", category: "Utilities" },
+    { id: "1", name: "Rent",        amount: 1500, paid: true,  dueDate: "2026-03-01",  category: "Housing"   },
+    { id: "2", name: "Electricity", amount: 120,  paid: false, dueDate: "2026-03-20", category: "Utilities" },
+    { id: "3", name: "Internet",    amount: 65,   paid: false, dueDate: "2026-03-22", category: "Utilities" },
+    { id: "4", name: "Water",       amount: 45,   paid: true,  dueDate: "2026-03-15", category: "Utilities" },
+    { id: "5", name: "Gas",         amount: 78,   paid: true,  dueDate: "2026-03-12", category: "Utilities" },
   ]);
 
   const [newBillName,     setNewBillName]     = useState("");
@@ -311,7 +311,15 @@ export default function PaymentsPage() {
                       {bill.name}
                     </p>
                     <p className="mt-0.5 text-xs text-gray-400">
-                      {bill.dueDate && <span>Due: {bill.dueDate}</span>}
+                      {bill.dueDate && (
+                        <span>
+                          Due: {new Date(bill.dueDate).toLocaleDateString("en-ZA", {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
                       {bill.dueDate && bill.category && <span> · </span>}
                       {bill.category && <span>{bill.category}</span>}
                     </p>
@@ -391,10 +399,9 @@ export default function PaymentsPage() {
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Due date</label>
                 <input
-                  type="text"
+                  type="date"
                   value={newBillDueDate}
                   onChange={(e) => setNewBillDueDate(e.target.value)}
-                  placeholder="e.g. 20th"
                   className="w-full rounded-xl border border-gray-200 bg-[#fafaf8] px-4 py-3 text-sm text-gray-700 placeholder-gray-400 transition focus:border-[#4a8c6a] focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30"
                 />
               </div>
