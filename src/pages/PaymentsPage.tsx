@@ -313,7 +313,7 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
                     </p>
                   </div>
                 </div>
-
+                
                 {/* Right: amount + badge + delete */}
                 <div className="flex items-center gap-4">
                   <p className="text-base font-bold text-gray-800">{formatZAR(bill.amount)}</p>
