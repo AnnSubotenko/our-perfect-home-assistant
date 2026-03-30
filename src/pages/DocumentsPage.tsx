@@ -1,7 +1,7 @@
-// No sidebar or outer wrapper here — Layout.tsx provides it
 import { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "../lib/supabase";
 
-// ─── Types ───────────────────────────────────────────────────────────────────
+// Types
 type Category = "Housing" | "Utilities" | "Insurance" | "Health" | "Other";
 
 type Doc = {
@@ -11,62 +11,24 @@ type Doc = {
   category: Category;
   uploadedAt: Date;
   fileType: string;
-  url: string; // empty string after refresh — object URLs don't survive
+  url: string;          // permanent Supabase public URL
+  storagePath: string;  // path in the bucket
 };
 
-// What actually gets saved to localStorage (dates as strings, no urls)
-type StoredDoc = Omit<Doc, "uploadedAt"> & { uploadedAt: string };
-
 const CATEGORIES: Category[] = ["Housing", "Utilities", "Insurance", "Health", "Other"];
-
-const ACCEPTED_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.heic,.heif";
+const ACCEPTED_EXTENSIONS = ".pdf,.png,.jpg,.jpeg,.heic,.heif,.doc,.docx";
 const ACCEPTED_TYPES = [
   "application/pdf",
   "image/png",
   "image/jpeg",
   "image/heic",
   "image/heif",
+  "application/doc",
+  "application/docx",
 ];
+const BUCKET = "documents";
 
-const SAMPLE_DOCS: Doc[] = [
-  { id: "1", name: "Electricity_Bill_Dec2024.pdf", size: 245 * 1024, category: "Utilities", uploadedAt: new Date("2024-12-20"), fileType: "pdf", url: "" },
-  { id: "2", name: "Rent_Receipt_Dec2024.pdf",     size: 128 * 1024, category: "Housing",   uploadedAt: new Date("2024-12-20"), fileType: "pdf", url: "" },
-  { id: "3", name: "Water_Bill_Dec2024.pdf",        size: 156 * 1024, category: "Utilities", uploadedAt: new Date("2024-12-15"), fileType: "pdf", url: "" },
-  { id: "4", name: "Internet_Invoice_Nov2024.pdf",  size: 189 * 1024, category: "Utilities", uploadedAt: new Date("2024-11-22"), fileType: "pdf", url: "" },
-  { id: "5", name: "Car_Insurance_Nov2024.pdf",     size: 512 * 1024, category: "Insurance", uploadedAt: new Date("2024-11-10"), fileType: "pdf", url: "" },
-  { id: "6", name: "Electricity_Bill_Nov2024.pdf",  size: 234 * 1024, category: "Utilities", uploadedAt: new Date("2024-11-20"), fileType: "pdf", url: "" },
-];
-
-// ─── localStorage helpers ─────────────────────────────────────────────────────
-const STORAGE_KEY = "our-home-docs";
-
-// Read from localStorage and convert date strings back to Date objects
-function loadFromStorage(): Doc[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return SAMPLE_DOCS; // first visit — use sample data
-    const stored: StoredDoc[] = JSON.parse(raw);
-    return stored.map((d) => ({
-      ...d,
-      uploadedAt: new Date(d.uploadedAt), // string → Date
-      url: "",  // object URLs don't survive refresh, always reset to ""
-    }));
-  } catch {
-    return SAMPLE_DOCS; // if localStorage is corrupted, fall back to samples
-  }
-}
-
-// Save to localStorage — strip urls since they don't survive refresh
-function saveToStorage(docs: Doc[]) {
-  const toStore: StoredDoc[] = docs.map((d) => ({
-    ...d,
-    url: "",                              // never save object URLs
-    uploadedAt: d.uploadedAt.toISOString(), // Date → string for JSON
-  }));
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(toStore));
-}
-
-// ─── Other helpers ────────────────────────────────────────────────────────────
+//  Helpers
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -86,16 +48,19 @@ function getFileType(file: File): string {
   if (file.type.includes("png")) return "png";
   if (file.type.includes("jpeg") || file.type.includes("jpg")) return "jpg";
   if (file.type.includes("heic") || file.type.includes("heif")) return "heic";
+  if (file.type === "application/doc") return "doc";
+  if (file.type === "application/docx") return "docx";
   return file.name.split(".").pop()?.toLowerCase() ?? "file";
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// Sub-components
 function FileIcon({ type }: { type: string }) {
   const isPdf = type === "pdf";
   return (
     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${isPdf ? "bg-red-50 text-red-400" : "bg-blue-50 text-blue-400"}`}>
       {isPdf ? (
-        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <svg
+          xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
       ) : (
@@ -107,62 +72,65 @@ function FileIcon({ type }: { type: string }) {
   );
 }
 
-function DownloadButton({ doc }: { doc: Doc }) {
-  const icon = (
-    <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-    </svg>
-  );
-
-  if (doc.url) {
-    return (
-      <a
-        href={doc.url}
-        download={doc.name}
-        title="Download file"
-        className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-50 transition-colors"
-      >
-        {icon}
-      </a>
-    );
-  }
-
-  return (
-    <span
-      title="Re-upload this file to enable download"
-      className="p-1.5 rounded-lg text-gray-200 cursor-not-allowed"
-    >
-      {icon}
-    </span>
-  );
-}
-
-// ─── Main component ───────────────────────────────────────────────────────────
+// Component
 export default function DocumentsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Load from localStorage on first render ────────────────────────────────
-  const [docs, setDocs] = useState<Doc[]>(() => loadFromStorage());
+  const [docs,           setDocs]           = useState<Doc[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [uploading,      setUploading]      = useState(false);
+  const [error,          setError]          = useState("");
+  const [search,         setSearch]         = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<Category | "All">("All");
+  const [showModal,      setShowModal]      = useState(false);
+  const [dragOver,       setDragOver]       = useState(false);
+  const [pendingFile,    setPendingFile]    = useState<File | null>(null);
+  const [pendingCategory,setPendingCategory]= useState<Category | "">("");
+  const [uploadError,    setUploadError]    = useState("");
 
-  // ── Save to localStorage whenever docs change ─────────────────────────────
+  // Load all documents from Supabase on mount
   useEffect(() => {
-    saveToStorage(docs);
-  }, [docs]);
+    async function fetchDocs() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("documents")
+        .select("*")
+        .order("uploaded_at", { ascending: false });
 
-  const [search,          setSearch]          = useState("");
-  const [categoryFilter,  setCategoryFilter]  = useState<Category | "All">("All");
-  const [showModal,       setShowModal]       = useState(false);
-  const [dragOver,        setDragOver]        = useState(false);
-  const [pendingFile,     setPendingFile]     = useState<File | null>(null);
-  const [pendingCategory, setPendingCategory] = useState<Category | "">("");
-  const [uploadError,     setUploadError]     = useState("");
+      if (error) {
+        console.error("fetchDocs error:", error);
+        setError(`Failed to load documents: ${error.message}`);
+        setLoading(false);
+        return;
+      }
 
-  // ── Derived stats ─────────────────────────────────────────────────────────
+      console.log("fetchDocs data:", data);
+
+      // Map Supabase snake_case rows → our camelCase Doc type
+      const mapped: Doc[] = (data ?? []).map((row) => ({
+        id:          row.id,
+        name:        row.name,
+        size:        row.size,
+        category:    row.category as Category,
+        uploadedAt:  new Date(row.uploaded_at),
+        fileType:    row.file_type,
+        url:         row.url,
+        storagePath: row.storage_path,
+      }));
+
+      setDocs(mapped);
+      setLoading(false);
+    }
+
+    fetchDocs();
+  }, []);
+
+  // Derived stats
   const totalSize      = useMemo(() => docs.reduce((sum, d) => sum + d.size, 0), [docs]);
   const monthsCovered  = useMemo(() => new Set(docs.map((d) => getMonthKey(d.uploadedAt))).size, [docs]);
   const categoriesUsed = useMemo(() => new Set(docs.map((d) => d.category)).size, [docs]);
 
-  // ── Filtered + grouped ────────────────────────────────────────────────────
+  // Filtered + grouped
   const filteredDocs = useMemo(() => {
     return docs.filter((d) => {
       const matchesSearch   = d.name.toLowerCase().includes(search.toLowerCase());
@@ -181,7 +149,7 @@ export default function DocumentsPage() {
     return Object.entries(groups).sort(([a], [b]) => b.localeCompare(a));
   }, [filteredDocs]);
 
-  // ── File validation ───────────────────────────────────────────────────────
+  // File validation
   function validateFile(file: File): string {
     const isAccepted =
       ACCEPTED_TYPES.includes(file.type) ||
@@ -191,14 +159,14 @@ export default function DocumentsPage() {
     return "";
   }
 
-  // ── Drag & drop ───────────────────────────────────────────────────────────
+  // Drag & drop
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     if (!file) return;
-    const error = validateFile(file);
-    if (error) { setUploadError(error); return; }
+    const err = validateFile(file);
+    if (err) { setUploadError(err); return; }
     setPendingFile(file);
     setUploadError("");
   }
@@ -206,42 +174,89 @@ export default function DocumentsPage() {
   function handleFileInput(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const error = validateFile(file);
-    if (error) { setUploadError(error); return; }
+    const err = validateFile(file);
+    if (err) { setUploadError(err); return; }
     setPendingFile(file);
     setUploadError("");
   }
 
-  // ── Upload ────────────────────────────────────────────────────────────────
-  function handleUpload() {
+  //  Upload to Supabase
+  async function handleUpload() {
     if (!pendingFile)     { setUploadError("Please select a file."); return; }
     if (!pendingCategory) { setUploadError("Please select a category."); return; }
 
-    const url = URL.createObjectURL(pendingFile);
-
-    const newDoc: Doc = {
-      id:         crypto.randomUUID(),
-      name:       pendingFile.name,
-      size:       pendingFile.size,
-      category:   pendingCategory as Category,
-      uploadedAt: new Date(),
-      fileType:   getFileType(pendingFile),
-      url, // available this session — cleared on refresh via loadFromStorage
-    };
-
-    setDocs((prev) => [newDoc, ...prev]);
-    setPendingFile(null);
-    setPendingCategory("");
+    setUploading(true);
     setUploadError("");
-    setShowModal(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+
+    try {
+      // 1. Build a unique path in the storage bucket
+      const storagePath = `${Date.now()}-${pendingFile.name.replace(/\s+/g, "_")}`;
+
+      // 2. Upload the actual file to Supabase Storage
+      const { error: storageError } = await supabase.storage
+        .from(BUCKET)
+        .upload(storagePath, pendingFile, { upsert: false });
+
+      if (storageError) throw new Error(storageError.message);
+
+      // 3. Get the permanent public URL for the uploaded file
+      const { data: urlData } = supabase.storage
+        .from(BUCKET)
+        .getPublicUrl(storagePath);
+
+      const publicUrl = urlData.publicUrl;
+
+      // 4. Save the metadata to the documents database table
+      const { data: inserted, error: dbError } = await supabase
+        .from("documents")
+        .insert({
+          name:         pendingFile.name,
+          size:         pendingFile.size,
+          category:     pendingCategory,
+          file_type:    getFileType(pendingFile),
+          storage_path: storagePath,
+          url:          publicUrl,
+        })
+        .select()
+        .single();
+
+      if (dbError) throw new Error(dbError.message);
+
+      // 5. Add to local state so the UI updates instantly
+      const newDoc: Doc = {
+        id:          inserted.id,
+        name:        inserted.name,
+        size:        inserted.size,
+        category:    inserted.category as Category,
+        uploadedAt:  new Date(inserted.uploaded_at),
+        fileType:    inserted.file_type,
+        url:         inserted.url,
+        storagePath: inserted.storage_path,
+      };
+
+      setDocs((prev) => [newDoc, ...prev]);
+      setPendingFile(null);
+      setPendingCategory("");
+      setShowModal(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+
+    } catch (err: unknown) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+    }
   }
 
-  function handleDelete(id: string) {
-    const doc = docs.find((d) => d.id === id);
-    if (doc?.url) URL.revokeObjectURL(doc.url); // free memory
-    setDocs((prev) => prev.filter((d) => d.id !== id));
-    // useEffect above will automatically save the updated list to localStorage
+  // Delete from Supabase
+  async function handleDelete(doc: Doc) {
+    // 1. Delete the file from storage
+    await supabase.storage.from(BUCKET).remove([doc.storagePath]);
+
+    // 2. Delete the metadata row from the database
+    await supabase.from("documents").delete().eq("id", doc.id);
+
+    // 3. Remove from local state
+    setDocs((prev) => prev.filter((d) => d.id !== doc.id));
   }
 
   function openModal() {
@@ -251,7 +266,7 @@ export default function DocumentsPage() {
     setShowModal(true);
   }
 
-  // ─────────────────────────────────────────────────────────────────────────
+  // ─────
   return (
     <div>
 
@@ -271,6 +286,16 @@ export default function DocumentsPage() {
           Upload
         </button>
       </div>
+
+      {/* Connection error */}
+      {error && (
+        <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3 mb-6">
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-red-600">{error}</p>
+        </div>
+      )}
 
       {/* Search + filter */}
       <div className="flex gap-3 mb-6">
@@ -299,10 +324,10 @@ export default function DocumentsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-6">
         {[
-          { label: "Total Documents", value: String(docs.length)    },
-          { label: "Months Covered",  value: String(monthsCovered)  },
-          { label: "Categories",      value: String(categoriesUsed) },
-          { label: "Total Size",      value: formatBytes(totalSize) },
+          { label: "Total Documents", value: loading ? "—" : String(docs.length)    },
+          { label: "Months Covered",  value: loading ? "—" : String(monthsCovered)  },
+          { label: "Categories",      value: loading ? "—" : String(categoriesUsed) },
+          { label: "Total Size",      value: loading ? "—" : formatBytes(totalSize) },
         ].map((stat) => (
           <div key={stat.label} className="bg-white rounded-2xl border border-gray-100 p-5 text-center">
             <p className="text-2xl font-bold text-[#4a8c6a]">{stat.value}</p>
@@ -311,12 +336,20 @@ export default function DocumentsPage() {
         ))}
       </div>
 
+      {/* Loading state */}
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+          <div className="w-6 h-6 border-2 border-[#4a8c6a] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Loading documents...</p>
+        </div>
 
-      {/* Document list */}
-      {groupedDocs.length === 0 ? (
+      /* Empty state */
+      ) : groupedDocs.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
           <p className="text-gray-400 text-sm">No documents found.</p>
         </div>
+
+      /* Document list grouped by month */
       ) : (
         <div className="flex flex-col gap-5">
           {groupedDocs.map(([monthKey, monthDocs]) => (
@@ -340,10 +373,7 @@ export default function DocumentsPage() {
               {/* Files grid */}
               <div className="grid grid-cols-2 gap-3">
                 {monthDocs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="flex items-center gap-3 bg-[#fafaf8] rounded-xl px-4 py-3"
-                  >
+                  <div key={doc.id} className="flex items-center gap-3 bg-[#fafaf8] rounded-xl px-4 py-3">
                     <FileIcon type={doc.fileType} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-gray-700 truncate">{doc.name}</p>
@@ -351,10 +381,26 @@ export default function DocumentsPage() {
                         {formatBytes(doc.size)} · {doc.category}
                       </p>
                     </div>
+
+                    {/* Actions */}
                     <div className="flex items-center gap-1">
-                      <DownloadButton doc={doc} />
+                      {/* Download — permanent Supabase URL, always works */}
+                      <a
+                        href={`${doc.url}?download`}
+                        download={doc.name}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Download file"
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-50 transition-colors"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                      </a>
+
+                      {/* Delete */}
                       <button
-                        onClick={() => handleDelete(doc.id)}
+                        onClick={() => handleDelete(doc)}
                         title="Delete document"
                         className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-50 transition-colors"
                       >
@@ -446,15 +492,24 @@ export default function DocumentsPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
-                className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50"
+                disabled={uploading}
+                className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpload}
-                className="flex-1 rounded-xl bg-[#4a8c6a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#3d7a5b]"
+                disabled={uploading}
+                className="flex-1 rounded-xl bg-[#4a8c6a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#3d7a5b] disabled:opacity-70 flex items-center justify-center gap-2"
               >
-                Upload Document
+                {uploading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  "Upload Document"
+                )}
               </button>
             </div>
           </div>
