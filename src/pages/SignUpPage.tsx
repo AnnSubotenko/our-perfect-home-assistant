@@ -1,21 +1,47 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+// Only these emails can create an account
+const ALLOWED_EMAILS = [
+  "anna.subotenko.uk@gmail.com",
+  "maximilian.fahlberg@gmail.com",
+];
+
 export default function SignUpPage() {
   const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [email,       setEmail]       = useState("");
+  const [password,    setPassword]    = useState("");
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState("");
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    setError("");
+
+    // Check if email is on the whitelist
+    if (!ALLOWED_EMAILS.includes(email.toLowerCase().trim())) {
+      setError("Sorry, registration is by invitation only.");
+      return;
+    }
+
+    // Basic validation
+    if (!displayName.trim()) {
+      setError("Please enter your display name.");
+      return;
+    }
+
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
     setLoading(true);
-    // Replace with your real sign-up logic (e.g. Supabase, Firebase, etc.)
+    // Replace this with your real auth logic e.g. Supabase Auth
     setTimeout(() => {
       setLoading(false);
-      navigate('/dashboard'); // redirect after account creation
-    }, 1500);
+      navigate("/dashboard");
+    }, 1000);
   };
 
   return (
@@ -86,7 +112,10 @@ export default function SignUpPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(""); // clear error when user types
+                }}
                 placeholder="you@example.com"
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30 focus:border-[#4a8c6a] transition"
               />
@@ -113,6 +142,16 @@ export default function SignUpPage() {
               />
             </div>
           </div>
+
+          {/* Error message */}
+          {error && (
+            <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <p className="text-sm text-red-500">{error}</p>
+            </div>
+          )}
 
           {/* Submit */}
           <button
