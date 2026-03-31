@@ -2,7 +2,7 @@
 import { useMemo, useState, type ReactNode } from "react";
 import type { Bill } from "../types/Bill";
 
-// Types
+// ─── Props ───────────────────────────────────────────────────────────────────
 type Props = {
   bills: Bill[];
   setBills: React.Dispatch<React.SetStateAction<Bill[]>>;
@@ -26,7 +26,7 @@ type FilterButtonProps = {
   inactiveClassName?: string;
 };
 
-// Helpers
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatZAR(amount: number): string {
   return new Intl.NumberFormat("en-ZA", {
     style: "currency",
@@ -42,14 +42,8 @@ function formatDate(dateStr: string): string {
   });
 }
 
-// Sub-components
-function StatCard({
-  title,
-  amount,
-  amountClassName,
-  iconBgClassName,
-  icon,
-}: StatCardProps) {
+// ─── Sub-components ──────────────────────────────────────────────────────────
+function StatCard({ title, amount, amountClassName, iconBgClassName, icon }: StatCardProps) {
   return (
     <div className="rounded-2xl border border-gray-100 bg-white px-6 py-6 shadow-sm">
       <div className="flex items-center gap-4">
@@ -84,16 +78,17 @@ function FilterButton({
   );
 }
 
-// Main Component
-export default function PaymentsPage({ bills, setBills }: Props)  {
+// ─── Main Component ──────────────────────────────────────────────────────────
+export default function PaymentsPage({ bills, setBills }: Props) {
   const [showModal, setShowModal] = useState(false);
-  const [filter, setFilter] = useState<FilterType>("all");
+  const [filter, setFilter]       = useState<FilterType>("all");
+
   const [newBillName,     setNewBillName]     = useState("");
   const [newBillAmount,   setNewBillAmount]   = useState("");
   const [newBillDueDate,  setNewBillDueDate]  = useState("");
   const [newBillCategory, setNewBillCategory] = useState("");
 
-  // Derived totals via useMemo
+  // ── Derived totals ────────────────────────────────────────────────────────
   const totalPaid = useMemo(
     () => bills.filter((b) => b.paid).reduce((sum, b) => sum + b.amount, 0),
     [bills]
@@ -115,7 +110,7 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
     return bills;
   }, [bills, filter]);
 
-  // Actions
+  // ── Actions — update shared state via setBills prop ───────────────────────
   function togglePaid(id: string) {
     setBills((prev) =>
       prev.map((b) => (b.id === id ? { ...b, paid: !b.paid } : b))
@@ -138,7 +133,7 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
         name,
         amount,
         paid:     false,
-        dueDate:  newBillDueDate.trim()  || undefined,
+        dueDate:  newBillDueDate  || undefined,
         category: newBillCategory.trim() || undefined,
       },
     ]);
@@ -150,7 +145,7 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
     setShowModal(false);
   }
 
-  // ────────────────
+  // ─────────────────────────────────────────────────────────────────────────
   return (
     <div>
 
@@ -164,18 +159,8 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
           onClick={() => setShowModal(true)}
           className="flex items-center gap-2 self-start rounded-xl bg-[#4a8c6a] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#3d7a5b]"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-4 w-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 4v16m8-8H4"
-          />
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
           </svg>
           Add Bill
         </button>
@@ -189,17 +174,8 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
           amountClassName="text-[#4a8c6a]"
           iconBgClassName="bg-[#e8f0eb]"
           icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-7 w-7 text-[#4a8c6a]"
-              fill="none" viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M5 13l4 4L19 7"
-            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-[#4a8c6a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>
           }
         />
@@ -209,22 +185,9 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
           amountClassName="text-[#d97706]"
           iconBgClassName="bg-[#fef3e2]"
           icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-7 w-7 text-[#d97706]"
-              fill="none" viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 8v4l3 2"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-[#d97706]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 2" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           }
         />
@@ -234,17 +197,8 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
           amountClassName="text-gray-800"
           iconBgClassName="bg-[#e8f0eb]"
           icon={
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-7 w-7 text-[#4a8c6a]"
-              fill="none" viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2.2}>
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M9 14h6m-6-4h6m2 10H7a2 2 0 01-2-2V6a2 2 0 012-2h7l5 5v9a2 2 0 01-2 2z"
-            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-[#4a8c6a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 14h6m-6-4h6m2 10H7a2 2 0 01-2-2V6a2 2 0 012-2h7l5 5v9a2 2 0 01-2 2z" />
             </svg>
           }
         />
@@ -288,17 +242,8 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
                     }`}
                   >
                     {bill.paid && (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-3.5 w-3.5 text-white"
-                        fill="none" viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={3}>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     )}
                   </button>
@@ -313,7 +258,7 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Right: amount + badge + delete */}
                 <div className="flex items-center gap-4">
                   <p className="text-base font-bold text-gray-800">{formatZAR(bill.amount)}</p>
@@ -326,18 +271,8 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
                     onClick={() => deleteBill(bill.id)}
                     className="text-gray-300 transition-colors hover:text-red-400"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}>
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M6 18L18 6M6 6l12 12"
-                    />
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
                 </div>
@@ -390,7 +325,7 @@ export default function PaymentsPage({ bills, setBills }: Props)  {
                   type="date"
                   value={newBillDueDate}
                   onChange={(e) => setNewBillDueDate(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 bg-[#fafaf8] px-4 py-3 text-sm text-gray-700 placeholder-gray-400 transition focus:border-[#4a8c6a] focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30"
+                  className="w-full rounded-xl border border-gray-200 bg-[#fafaf8] px-4 py-3 text-sm text-gray-700 transition focus:border-[#4a8c6a] focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30"
                 />
               </div>
 
