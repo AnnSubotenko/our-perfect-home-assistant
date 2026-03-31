@@ -31,7 +31,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard bills={bills} />} />
           <Route path="/calendar"  element={<CalendarPage />} />
           <Route path="/payments"  element={<PaymentsPage bills={bills} setBills={setBills} />} />
-          <Route path="/documents" element={<DocumentsPage />} />
+          <Route path="/documents" element={<DocumentsPage setBills={setBills}/>} />
         </Route>
       </Routes>
     </BrowserRouter>
