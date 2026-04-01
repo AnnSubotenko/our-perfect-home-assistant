@@ -4,6 +4,7 @@ import type { Bill } from "../types/Bill";
 
 type Props = {
   bills: Bill[];
+  loading: boolean;
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -22,7 +23,7 @@ function formatDate(dateStr: string): string {
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
-export default function Dashboard({ bills }: Props) {
+export default function Dashboard({ bills, loading }: Props) {
 
   // ── Dynamic stats from shared bills ──────────────────────────────────────
   const totalPaid = useMemo(
@@ -69,7 +70,7 @@ export default function Dashboard({ bills }: Props) {
   const stats = [
     {
       label: "Bills Paid",
-      value: String(billsPaidCount),
+      value: loading ? "—" : String(billsPaidCount),
       sub: "This month",
       iconBg: "bg-[#e8f0eb]",
       iconColor: "text-[#4a8c6a]",
@@ -81,7 +82,7 @@ export default function Dashboard({ bills }: Props) {
     },
     {
       label: "Pending",
-      value: String(pendingCount),
+      value: loading ? "—" : String(pendingCount),
       sub: "Due soon",
       iconBg: "bg-[#fef3e2]",
       iconColor: "text-[#d97706]",
@@ -93,7 +94,7 @@ export default function Dashboard({ bills }: Props) {
     },
     {
       label: "Total Paid",
-      value: formatZAR(totalPaid),
+      value: loading ? "—" : formatZAR(totalPaid),
       sub: "This month",
       iconBg: "bg-[#e8f0eb]",
       iconColor: "text-[#4a8c6a]",
@@ -105,7 +106,7 @@ export default function Dashboard({ bills }: Props) {
     },
     {
       label: "Pending Amount",
-      value: formatZAR(totalPending),
+      value: loading ? "—" : formatZAR(totalPending),
       sub: "Outstanding",
       iconBg: "bg-[#fef0ec]",
       iconColor: "text-[#e07048]",
@@ -153,7 +154,11 @@ export default function Dashboard({ bills }: Props) {
           <h2 className="text-lg font-bold text-gray-800">Upcoming</h2>
         </div>
 
-        {upcoming.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="w-5 h-5 border-2 border-[#4a8c6a] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : upcoming.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">No upcoming bills 🎉</p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -184,7 +189,11 @@ export default function Dashboard({ bills }: Props) {
           <h2 className="text-lg font-bold text-gray-800">Recent Payments</h2>
         </div>
 
-        {recentPayments.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center py-6">
+            <div className="w-5 h-5 border-2 border-[#4a8c6a] border-t-transparent rounded-full animate-spin" />
+          </div>
+        ) : recentPayments.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-4">No payments yet</p>
         ) : (
           <div className="flex flex-col gap-2">

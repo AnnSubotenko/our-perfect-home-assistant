@@ -1,5 +1,6 @@
 // No sidebar or outer wrapper here — Layout.tsx provides it
 import { useMemo, useState, type ReactNode } from "react";
+import { supabase } from "../lib/supabase";
 import type { Bill } from "../types/Bill";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -80,13 +81,14 @@ function FilterButton({
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function PaymentsPage({ bills, setBills }: Props) {
-  const [showModal, setShowModal] = useState(false);
-  const [filter, setFilter]       = useState<FilterType>("all");
-
+  const [showModal,       setShowModal]       = useState(false);
+  const [filter,          setFilter]          = useState<FilterType>("all");
   const [newBillName,     setNewBillName]     = useState("");
   const [newBillAmount,   setNewBillAmount]   = useState("");
   const [newBillDueDate,  setNewBillDueDate]  = useState("");
   const [newBillCategory, setNewBillCategory] = useState("");
+  const [saving,          setSaving]          = useState(false);
+  const [saveError,       setSaveError]       = useState("");
 
   // ── Derived totals ────────────────────────────────────────────────────────
   const totalPaid = useMemo(
@@ -110,38 +112,93 @@ export default function PaymentsPage({ bills, setBills }: Props) {
     return bills;
   }, [bills, filter]);
 
-  // ── Actions — update shared state via setBills prop ───────────────────────
-  function togglePaid(id: string) {
+  // ── Toggle paid — update Supabase + local state ───────────────────────────
+  async function togglePaid(id: string) {
+    const bill = bills.find((b) => b.id === id);
+    if (!bill) return;
+
+    const newPaid = !bill.paid;
+
+    // Optimistic update — update UI immediately
     setBills((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, paid: !b.paid } : b))
+      prev.map((b) => (b.id === id ? { ...b, paid: newPaid } : b))
     );
+
+    // Save to Supabase
+    const { error } = await supabase
+      .from("bills")
+      .update({ paid: newPaid })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Failed to update bill:", error.message);
+      // Revert optimistic update if it failed
+      setBills((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, paid: bill.paid } : b))
+      );
+    }
   }
 
-  function deleteBill(id: string) {
+  // ── Delete bill — remove from Supabase + local state ─────────────────────
+  async function deleteBill(id: string) {
+    // Optimistic update
     setBills((prev) => prev.filter((b) => b.id !== id));
+
+    const { error } = await supabase
+      .from("bills")
+      .delete()
+      .eq("id", id);
+
+    if (error) {
+      console.error("Failed to delete bill:", error.message);
+    }
   }
 
-  function addBill() {
+  // ── Add bill — save to Supabase + local state ─────────────────────────────
+  async function addBill() {
     const name   = newBillName.trim();
     const amount = Number(newBillAmount);
-    if (!name || isNaN(amount) || amount <= 0) return;
 
-    setBills((prev) => [
-      ...prev,
-      {
-        id:       crypto.randomUUID(),
+    if (!name)                        { setSaveError("Please enter a bill name."); return; }
+    if (isNaN(amount) || amount <= 0) { setSaveError("Please enter a valid amount."); return; }
+
+    setSaving(true);
+    setSaveError("");
+
+    const { data, error } = await supabase
+      .from("bills")
+      .insert({
         name,
         amount,
         paid:     false,
-        dueDate:  newBillDueDate  || undefined,
-        category: newBillCategory.trim() || undefined,
-      },
-    ]);
+        due_date: newBillDueDate  || null,
+        category: newBillCategory.trim() || null,
+      })
+      .select()
+      .single();
 
+    if (error) {
+      setSaveError("Failed to save bill. Please try again.");
+      setSaving(false);
+      return;
+    }
+
+    // Add to local state
+    const newBill: Bill = {
+      id:       data.id,
+      name:     data.name,
+      amount:   data.amount,
+      paid:     data.paid,
+      dueDate:  data.due_date,
+      category: data.category,
+    };
+
+    setBills((prev) => [newBill, ...prev]);
     setNewBillName("");
     setNewBillAmount("");
     setNewBillDueDate("");
     setNewBillCategory("");
+    setSaving(false);
     setShowModal(false);
   }
 
@@ -156,7 +213,7 @@ export default function PaymentsPage({ bills, setBills }: Props) {
           <p className="mt-1 text-sm text-gray-400">Track your monthly bills and payments</p>
         </div>
         <button
-          onClick={() => setShowModal(true)}
+          onClick={() => { setSaveError(""); setShowModal(true); }}
           className="flex items-center gap-2 self-start rounded-xl bg-[#4a8c6a] px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-[#3d7a5b]"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
@@ -341,18 +398,31 @@ export default function PaymentsPage({ bills, setBills }: Props) {
               </div>
             </div>
 
+            {saveError && (
+              <p className="mt-4 text-xs text-red-500">{saveError}</p>
+            )}
+
             <div className="mt-8 flex gap-3">
               <button
                 onClick={() => setShowModal(false)}
+                disabled={saving}
                 className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-500 transition-colors hover:bg-gray-50"
               >
                 Cancel
               </button>
               <button
                 onClick={addBill}
+                disabled={saving}
                 className="flex-1 rounded-xl bg-[#4a8c6a] py-3 text-sm font-medium text-white transition-colors hover:bg-[#3d7a5b]"
               >
-                Add Bill
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                 "Add Bill"
+                )}
               </button>
             </div>
           </div>
