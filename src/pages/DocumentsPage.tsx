@@ -370,14 +370,29 @@ export default function DocumentsPage({ setBills }: Props) {
       };
       setDocs((prev) => [newDoc, ...prev]);
 
-      // 5. Add bill to shared bills state → shows on Payments + Dashboard
+      // 5. Save bill to Supabase so it persists after refresh
+      const { data: billData, error: billError } = await supabase
+        .from("bills")
+        .insert({
+          name:     extractedName,
+          amount:   parseFloat(extractedAmount) || 0,
+          paid:     false,
+          due_date: extractedDueDate || null,
+          category: extractedCategory,
+      })
+        .select()
+        .single();
+
+      if (billError) throw new Error(billError.message);
+
+      // 5.1. Add to local bills state so Dashboard + Payments update instantly
       const newBill: Bill = {
-        id:       crypto.randomUUID(),
-        name:     extractedName,
-        amount:   parseFloat(extractedAmount) || 0,
-        paid:     false,
-        dueDate:  extractedDueDate,
-        category: extractedCategory,
+        id:       billData.id,
+        name:     billData.name,
+        amount:   billData.amount,
+        paid:     billData.paid,
+        dueDate:  billData.due_date,
+        category: billData.category,
       };
       setBills((prev) => [newBill, ...prev]);
 
