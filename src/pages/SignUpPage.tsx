@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabase";
 
-// Only these emails can create an account
+// ─── Only these two emails can create an account ──────────────────────────────
 const ALLOWED_EMAILS = [
-  "anna.subotenko.uk@gmail.com",
+  "anna.subotenko.uk@gmail.com",  
   "maximilian.fahlberg@gmail.com",
 ];
 
@@ -15,17 +16,16 @@ export default function SignUpPage() {
   const [error,       setError]       = useState("");
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleSubmit = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setError("");
 
-    // Check if email is on the whitelist
+    // Whitelist check
     if (!ALLOWED_EMAILS.includes(email.toLowerCase().trim())) {
       setError("Sorry, registration is by invitation only.");
       return;
     }
 
-    // Basic validation
     if (!displayName.trim()) {
       setError("Please enter your display name.");
       return;
@@ -37,11 +37,23 @@ export default function SignUpPage() {
     }
 
     setLoading(true);
-    // Replace this with your real auth logic e.g. Supabase Auth
-    setTimeout(() => {
+
+    const { error } = await supabase.auth.signUp({
+      email:    email.trim().toLowerCase(),
+      password,
+      options: {
+        data: { display_name: displayName.trim() },
+      },
+    });
+
+    if (error) {
+      setError(error.message);
       setLoading(false);
-      navigate("/dashboard");
-    }, 1000);
+      return;
+    }
+
+    // Signed up and logged in — navigate to dashboard
+    navigate("/dashboard");
   };
 
   return (
@@ -59,11 +71,7 @@ export default function SignUpPage() {
               stroke="currentColor"
               strokeWidth={1.8}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-              />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
           </div>
         </div>
@@ -79,9 +87,7 @@ export default function SignUpPage() {
 
           {/* Display Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Display Name
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -91,7 +97,7 @@ export default function SignUpPage() {
               <input
                 type="text"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => { setDisplayName(e.target.value); setError(""); }}
                 placeholder="Your name"
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30 focus:border-[#4a8c6a] transition"
               />
@@ -100,9 +106,7 @@ export default function SignUpPage() {
 
           {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -112,10 +116,7 @@ export default function SignUpPage() {
               <input
                 type="email"
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError(""); // clear error when user types
-                }}
+                onChange={(e) => { setEmail(e.target.value); setError(""); }}
                 placeholder="you@example.com"
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30 focus:border-[#4a8c6a] transition"
               />
@@ -124,9 +125,7 @@ export default function SignUpPage() {
 
           {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -136,14 +135,14 @@ export default function SignUpPage() {
               <input
                 type="password"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => { setPassword(e.target.value); setError(""); }}
                 placeholder="••••••••"
                 className="w-full pl-12 pr-4 py-3.5 rounded-xl border border-gray-200 bg-[#fafaf8] text-gray-700 placeholder-gray-400 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a8c6a]/30 focus:border-[#4a8c6a] transition"
               />
             </div>
           </div>
 
-          {/* Error message */}
+          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
               <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -157,13 +156,18 @@ export default function SignUpPage() {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full py-4 rounded-xl bg-[#4a8c6a] hover:bg-[#3d7a5b] active:bg-[#346850] text-white font-medium text-sm transition-colors duration-150 disabled:opacity-70 mt-2"
+            className="w-full py-4 rounded-xl bg-[#4a8c6a] hover:bg-[#3d7a5b] active:bg-[#346850] text-white font-medium text-sm transition-colors duration-150 disabled:opacity-70 flex items-center justify-center gap-2"
           >
-            {loading ? "Creating account…" : "Create Account"}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Creating account…
+              </>
+            ) : "Create Account"}
           </button>
         </div>
 
-        {/* Footer link */}
+        {/* Footer */}
         <p className="text-center text-sm text-gray-400 mt-6">
           Already have an account?{" "}
           <Link to="/login" className="text-[#4a8c6a] hover:underline font-medium">
