@@ -530,19 +530,25 @@ export default function DocumentsPage({ setBills }: Props) {
                 {monthDocs.map((doc) => (
                   <div key={doc.id} className="flex items-center gap-3 bg-[#fafaf8] rounded-xl px-4 py-3">
                     <FileIcon type={doc.fileType} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700 truncate">{doc.name}</p>
+                    <a
+                    href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 min-w-0 group/name"
+                    >
+                      <p className="text-sm font-medium text-gray-700 truncate group-hover/name:text-[#4a8c6a] group-hover/name:underline transition-colors">
+                        {doc.name}
+                      </p>
                       <p className="text-xs text-gray-400 mt-0.5">
                         {formatBytes(doc.size)} · {doc.category}
                       </p>
-                    </div>
+                  </a>
                     <div className="flex items-center gap-1">
                       <a
-                        href={`${doc.url}?download`}
-                        download={doc.name}
+                        href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        title="Download file"
+                        title="Open file"
                         className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-50 transition-colors"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
