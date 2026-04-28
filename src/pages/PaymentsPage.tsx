@@ -1,4 +1,3 @@
-// No sidebar or outer wrapper here — Layout.tsx provides it
 import { useMemo, useState, type ReactNode } from "react";
 import { supabase } from "../lib/supabase";
 import type { Bill } from "../types/Bill";

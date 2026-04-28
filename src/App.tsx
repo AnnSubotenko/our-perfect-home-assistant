@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import CalendarPage from "./pages/CalendarPage";
 import PaymentsPage from "./pages/PaymentsPage";
 import DocumentsPage from "./pages/DocumentsPage";
+import MonthlyOverviewPage from "./pages/MonthlyOverviewPage";
 import { supabase } from "./lib/supabase";
 import type { Bill } from "./types/Bill";
 import type { Session } from "@supabase/supabase-js";
@@ -115,6 +116,7 @@ export default function App() {
           <Route path="/calendar"  element={<CalendarPage />} />
           <Route path="/payments"  element={<PaymentsPage bills={bills} setBills={setBills} />} />
           <Route path="/documents" element={<DocumentsPage setBills={setBills} />} />
+          <Route path="/monthly-overview" element={<MonthlyOverviewPage bills={bills} />} />
         </Route>
 
         {/* Default redirect */}
